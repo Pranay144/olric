@@ -423,6 +423,18 @@ func (db *Olric) checkAndGetCoordinator(id uint64) (discovery.Member, error) {
 	return coordinator, nil
 }
 
+func (db *Olric) setOwnedPartitionCount() {
+	var count uint64
+	for partID := uint64(0); partID < db.config.PartitionCount; partID++ {
+		part := db.partitions[partID]
+		if hostCmp(part.owner(), db.this) {
+			count++
+		}
+	}
+
+	atomic.StoreUint64(&db.ownedPartitionCount, count)
+}
+
 func (db *Olric) updateRoutingOperation(req *protocol.Message) *protocol.Message {
 	routingUpdateMtx.Lock()
 	defer routingUpdateMtx.Unlock()
@@ -453,6 +465,8 @@ func (db *Olric) updateRoutingOperation(req *protocol.Message) *protocol.Message
 		bpart := db.backups[partID]
 		bpart.owners.Store(data.Backups)
 	}
+
+	db.setOwnedPartitionCount()
 
 	// Call rebalancer to rebalance partitions
 	db.wg.Add(1)

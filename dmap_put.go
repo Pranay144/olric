@@ -16,6 +16,7 @@ package olric
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -243,17 +244,22 @@ func (db *Olric) callPutOnCluster(hkey uint64, w *writeop) error {
 
 	// Try to make room for the new item, if it's required.
 	if dm.cache != nil && dm.cache.evictionPolicy == config.LRUEviction {
-		if dm.cache.maxKeys > 0 && dm.storage.Len() >= dm.cache.maxKeys {
-			err := db.evictKeyWithLRU(dm, w.dmap)
-			if err != nil {
-				return err
+		ownedPartitionCount := atomic.LoadUint64(&db.ownedPartitionCount)
+		if dm.cache.maxKeys > 0 {
+			if dm.storage.Len() >= dm.cache.maxKeys/int(ownedPartitionCount) {
+				err := db.evictKeyWithLRU(dm, w.dmap)
+				if err != nil {
+					return err
+				}
 			}
 		}
 
-		if dm.cache.maxInuse > 0 && dm.storage.Inuse() >= dm.cache.maxInuse {
-			err := db.evictKeyWithLRU(dm, w.dmap)
-			if err != nil {
-				return err
+		if dm.cache.maxInuse > 0 {
+			if dm.storage.Inuse() >= dm.cache.maxInuse/int(ownedPartitionCount) {
+				err := db.evictKeyWithLRU(dm, w.dmap)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}

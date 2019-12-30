@@ -58,7 +58,7 @@ var (
 )
 
 // ReleaseVersion is the current stable version of Olric
-const ReleaseVersion string = "0.1.0"
+const ReleaseVersion string = "0.2.0-rc.1"
 
 const nilTimeout = 0 * time.Second
 
@@ -68,6 +68,8 @@ type Olric struct {
 	bootstrapped int32
 	// numMembers is used to check cluster quorum.
 	numMembers int32
+
+	ownedPartitionCount uint64
 
 	// this defines this Olric node in the cluster.
 	this   discovery.Member
@@ -568,8 +570,8 @@ func (db *Olric) setCacheConfiguration(dm *dmap, name string) error {
 	dm.cache = &cache{}
 	dm.cache.maxIdleDuration = db.config.Cache.MaxIdleDuration
 	dm.cache.ttlDuration = db.config.Cache.TTLDuration
-	dm.cache.maxKeys = db.config.Cache.MaxKeys / int(db.config.PartitionCount)
-	dm.cache.maxInuse = db.config.Cache.MaxInuse / int(db.config.PartitionCount)
+	dm.cache.maxKeys = db.config.Cache.MaxKeys
+	dm.cache.maxInuse = db.config.Cache.MaxInuse
 	dm.cache.lruSamples = db.config.Cache.LRUSamples
 	dm.cache.evictionPolicy = db.config.Cache.EvictionPolicy
 
@@ -587,10 +589,10 @@ func (db *Olric) setCacheConfiguration(dm *dmap, name string) error {
 				dm.cache.evictionPolicy = c.EvictionPolicy
 			}
 			if dm.cache.maxKeys != c.MaxKeys {
-				dm.cache.maxKeys = c.MaxKeys / int(db.config.PartitionCount)
+				dm.cache.maxKeys = c.MaxKeys
 			}
 			if dm.cache.maxInuse != c.MaxInuse {
-				dm.cache.maxInuse = c.MaxInuse / int(db.config.PartitionCount)
+				dm.cache.maxInuse = c.MaxInuse
 			}
 			if dm.cache.lruSamples != c.LRUSamples {
 				dm.cache.lruSamples = c.LRUSamples
