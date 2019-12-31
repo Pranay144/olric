@@ -69,6 +69,8 @@ type Olric struct {
 	// numMembers is used to check cluster quorum.
 	numMembers int32
 
+	// Currently owned partition count. Approximate LRU implementation
+	// uses that.
 	ownedPartitionCount uint64
 
 	// this defines this Olric node in the cluster.
@@ -517,10 +519,14 @@ func (db *Olric) Shutdown(ctx context.Context) error {
 
 	db.wg.Wait()
 
-	// The GC will flush all the data.
-	db.partitions = nil
-	db.backups = nil
-	db.log.V(1).Printf("[INFO] %s is gone", db.this)
+	// If the user kills the server before bootstrapping, db.this is going to empty.
+	var name string
+	if db.this.String() != "" {
+		name = db.this.String()
+	} else {
+		name = db.config.Name
+	}
+	db.log.V(1).Printf("[INFO] %s is gone", name)
 	return result
 }
 
