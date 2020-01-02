@@ -167,6 +167,7 @@ func New(c *Config) (*Olricd, error) {
 		ReadRepair:        c.Olricd.ReadRepair,
 		LoadFactor:        c.Olricd.LoadFactor,
 		MemberCountQuorum: c.Olricd.MemberCountQuorum,
+		MaxAllocated:      c.Olricd.MaxAllocated,
 		Logger:            s.log,
 		LogOutput:         logOutput,
 		LogVerbosity:      c.Logging.Verbosity,

@@ -32,7 +32,12 @@ func (s *Storage) CompactTables() bool {
 			err := fresh.putRaw(hkey, vdata)
 			if err == errNotEnoughSpace {
 				// Create a new table and put the new k/v pair in it.
-				nt := newTable(s.Inuse() * 2)
+				nt, err := s.newTable(s.Inuse() * 2)
+				if err != nil {
+					log.Printf("[ERROR] Failed to create a new table: %v", err)
+					// this means compaction is done.
+					return true
+				}
 				s.tables = append(s.tables, nt)
 				return false
 			}

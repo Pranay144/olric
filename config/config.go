@@ -205,6 +205,8 @@ type Config struct {
 	WriteQuorum       int
 	MemberCountQuorum int32
 
+	MaxAllocated int
+
 	ReadRepair bool
 
 	// Default value is SyncReplicationMode.

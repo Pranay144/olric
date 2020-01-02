@@ -35,7 +35,10 @@ func bval(i int) []byte {
 }
 
 func Test_Put(t *testing.T) {
-	s := New(0)
+	s, err := New(0, 0)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
 
 	for i := 0; i < 100; i++ {
 		vdata := &VData{
@@ -53,8 +56,10 @@ func Test_Put(t *testing.T) {
 }
 
 func Test_Get(t *testing.T) {
-	s := New(0)
-
+	s, err := New(0, 0)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
 	timestamp := time.Now().UnixNano()
 	for i := 0; i < 100; i++ {
 		vdata := &VData{
@@ -92,8 +97,10 @@ func Test_Get(t *testing.T) {
 }
 
 func Test_Delete(t *testing.T) {
-	s := New(0)
-
+	s, err := New(0, 0)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
 	for i := 0; i < 100; i++ {
 		vdata := &VData{
 			Key:       bkey(i),
@@ -131,8 +138,10 @@ func Test_Delete(t *testing.T) {
 }
 
 func Test_CompactTables(t *testing.T) {
-	s := New(0)
-
+	s, err := New(0, 0)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
 	compaction := func() {
 		storageTestLock.Lock()
 		defer storageTestLock.Unlock()
@@ -205,8 +214,10 @@ func Test_CompactTables(t *testing.T) {
 }
 
 func Test_PurgeTables(t *testing.T) {
-	s := New(0)
-
+	s, err := New(0, 0)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
 	var isFragmented bool
 
 	compaction := func() {
@@ -275,7 +286,10 @@ func Test_PurgeTables(t *testing.T) {
 
 func Test_ExportImport(t *testing.T) {
 	timestamp := time.Now().UnixNano()
-	s := New(0)
+	s, err := New(0, 0)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
 	for i := 0; i < 100; i++ {
 		vdata := &VData{
 			Key:       bkey(i),
@@ -293,7 +307,7 @@ func Test_ExportImport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected nil. Got %v", err)
 	}
-	fresh, err := Import(data)
+	fresh, err := Import(data, 0)
 	if err != nil {
 		t.Fatalf("Expected nil. Got %v", err)
 	}
@@ -319,7 +333,10 @@ func Test_ExportImport(t *testing.T) {
 }
 
 func Test_Len(t *testing.T) {
-	s := New(0)
+	s, err := New(0, 0)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
 	for i := 0; i < 100; i++ {
 		vdata := &VData{
 			Key:   bkey(i),
@@ -339,7 +356,10 @@ func Test_Len(t *testing.T) {
 }
 
 func Test_Range(t *testing.T) {
-	s := New(0)
+	s, err := New(0, 0)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
 	hkeys := make(map[uint64]struct{})
 	for i := 0; i < 100; i++ {
 		vdata := &VData{
@@ -365,7 +385,10 @@ func Test_Range(t *testing.T) {
 }
 
 func Test_Check(t *testing.T) {
-	s := New(0)
+	s, err := New(0, 0)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
 	hkeys := make(map[uint64]struct{})
 	for i := 0; i < 100; i++ {
 		vdata := &VData{
@@ -390,8 +413,10 @@ func Test_Check(t *testing.T) {
 }
 
 func Test_UpdateTTL(t *testing.T) {
-	s := New(0)
-
+	s, err := New(0, 0)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
 	for i := 0; i < 100; i++ {
 		vdata := &VData{
 			Key:       bkey(i),
@@ -434,14 +459,17 @@ func Test_UpdateTTL(t *testing.T) {
 }
 
 func Test_GetKey(t *testing.T) {
-	s := New(0)
+	s, err := New(0, 0)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
 	vdata := &VData{
 		Key:   bkey(1),
 		TTL:   int64(1),
 		Value: bval(1),
 	}
 	hkey := xxhash.Sum64([]byte(vdata.Key))
-	err := s.Put(hkey, vdata)
+	err = s.Put(hkey, vdata)
 	if err != nil {
 		t.Fatalf("Expected nil. Got %v", err)
 	}
@@ -456,10 +484,13 @@ func Test_GetKey(t *testing.T) {
 }
 
 func Test_PutRawGetRaw(t *testing.T) {
-	s := New(0)
+	s, err := New(0, 0)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
 	value := []byte("value")
 	hkey := xxhash.Sum64([]byte("key"))
-	err := s.PutRaw(hkey, value)
+	err = s.PutRaw(hkey, value)
 	if err != nil {
 		t.Fatalf("Expected nil. Got %v", err)
 	}
@@ -474,14 +505,17 @@ func Test_PutRawGetRaw(t *testing.T) {
 }
 
 func Test_GetTTL(t *testing.T) {
-	s := New(0)
+	s, err := New(0, 0)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
 	vdata := &VData{
 		Key:   bkey(1),
 		TTL:   int64(1),
 		Value: bval(1),
 	}
 	hkey := xxhash.Sum64([]byte(vdata.Key))
-	err := s.Put(hkey, vdata)
+	err = s.Put(hkey, vdata)
 	if err != nil {
 		t.Fatalf("Expected nil. Got %v", err)
 	}

@@ -55,6 +55,8 @@ var (
 
 	// ErrUnknownOperation means that an unidentified message has been received from a client.
 	ErrUnknownOperation = errors.New("unknown operation")
+
+	ErrMaxAllocatedExceeded = errors.New("provided MaxAllocated value has been exceeded")
 )
 
 // ReleaseVersion is the current stable version of Olric
@@ -654,7 +656,12 @@ func (db *Olric) createDMap(part *partition, name string, str *storage.Storage) 
 	if nm.storage != nil {
 		nm.storage = str
 	} else {
-		nm.storage = storage.New(db.config.TableSize)
+		// maxAllocated/currentPartitionCount
+		s, err := storage.New(db.config.TableSize, db.config.MaxAllocated)
+		if err != nil {
+			return nil, err
+		}
+		nm.storage = s
 	}
 
 	part.m.Store(name, nm)
@@ -703,6 +710,8 @@ func (db *Olric) prepareResponse(req *protocol.Message, err error) *protocol.Mes
 		return req.Error(protocol.StatusErrKeyNotFound, err)
 	case err == storage.ErrKeyTooLarge:
 		return req.Error(protocol.StatusBadRequest, err)
+	case err == storage.ErrMaxAllocatedExceeded:
+		return req.Error(protocol.StatusErrMaxAllocatedExceeded, err)
 	case err == ErrOperationTimeout:
 		return req.Error(protocol.StatusErrOperationTimeout, err)
 	case err == ErrKeyFound:
@@ -745,6 +754,8 @@ func (db *Olric) requestTo(addr string, opcode protocol.OpCode, req *protocol.Me
 		return nil, ErrClusterQuorum
 	case resp.Status == protocol.StatusErrUnknownOperation:
 		return nil, ErrUnknownOperation
+	case resp.Status == protocol.StatusErrMaxAllocatedExceeded:
+		return nil, ErrMaxAllocatedExceeded
 	}
 	return nil, fmt.Errorf("unknown status code: %d", resp.Status)
 }

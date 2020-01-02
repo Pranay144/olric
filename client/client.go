@@ -142,6 +142,8 @@ func checkStatusCode(resp *protocol.Message) error {
 		return olric.ErrClusterQuorum
 	case resp.Status == protocol.StatusErrUnknownOperation:
 		return olric.ErrUnknownOperation
+	case resp.Status == protocol.StatusErrMaxAllocatedExceeded:
+		return olric.ErrMaxAllocatedExceeded
 	default:
 		return fmt.Errorf("unknown status: %v", resp.Status)
 	}

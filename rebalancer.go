@@ -91,7 +91,7 @@ func (db *Olric) selectVersionForMerge(dm *dmap, hkey uint64, vdata *storage.VDa
 }
 
 func (db *Olric) mergeDMaps(part *partition, data *dmapbox) error {
-	str, err := storage.Import(data.Payload)
+	str, err := storage.Import(data.Payload, db.config.MaxAllocated)
 	if err != nil {
 		return err
 	}

@@ -43,6 +43,7 @@ type olricd struct {
 	ReadRepair        bool    `yaml:"readRepair"`
 	TableSize         int     `yaml:"tableSize"`
 	MemberCountQuorum int32   `yaml:"memberCountQuorum"`
+	MaxAllocated      int     `yaml:"maxAllocated"`
 }
 
 // logging contains configuration variables of logging section of config file.

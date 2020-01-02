@@ -93,6 +93,7 @@ const (
 	StatusErrKeyFound
 	StatusErrClusterQuorum
 	StatusErrUnknownOperation
+	StatusErrMaxAllocatedExceeded
 )
 
 const headerSize int64 = 12

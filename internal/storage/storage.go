@@ -16,6 +16,8 @@
 package storage
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack"
 )
@@ -28,7 +30,10 @@ const (
 
 // ErrFragmented is an error that indicates this storage instance is currently
 // fragmented and it cannot be serialized.
-var ErrFragmented = errors.New("storage fragmented")
+var (
+	ErrFragmented           = errors.New("storage fragmented")
+	ErrMaxAllocatedExceeded = errors.New("provided MaxAllocated value has been exceeded")
+)
 
 // SlabInfo is used to expose internal data usage of a storage instance.
 type SlabInfo struct {
@@ -49,15 +54,33 @@ type VData struct {
 // keep metadata and mmap syscall for allocating memory to store values.
 // The allocated memory is not a subject of Golang's GC.
 type Storage struct {
-	tables []*table
+	tables       []*table
+	maxAllocated int
 }
 
 // New creates a new storage instance.
-func New(size int) *Storage {
-	str := &Storage{}
-	t := newTable(size)
-	str.tables = append(str.tables, t)
-	return str
+func New(size, maxAllocated int) (*Storage, error) {
+	if maxAllocated > 0 && size > maxAllocated {
+		return nil, fmt.Errorf("size: %d cannot be bigger than maxAllocated: %d",
+			size, maxAllocated)
+	}
+
+	s := &Storage{
+		maxAllocated: maxAllocated,
+	}
+	t, err := s.newTable(size)
+	if err != nil {
+		return nil, err
+	}
+	s.tables = append(s.tables, t)
+	return s, nil
+}
+
+func (s *Storage) newTable(size int) (*table, error) {
+	if s.maxAllocated > 0 && size > s.maxAllocated {
+		return nil, ErrMaxAllocatedExceeded
+	}
+	return newTable(size), nil
 }
 
 // PutRaw sets the raw value for the given key.
@@ -287,14 +310,17 @@ func (s *Storage) Export() ([]byte, error) {
 }
 
 // Import gets the serialized data by Export and creates a new storage instance.
-func Import(data []byte) (*Storage, error) {
+func Import(data []byte, maxAllocated int) (*Storage, error) {
 	tr := transport{}
 	err := msgpack.Unmarshal(data, &tr)
 	if err != nil {
 		return nil, err
 	}
 
-	o := New(tr.Allocated)
+	o, err := New(tr.Allocated, maxAllocated)
+	if err != nil {
+		return nil, err
+	}
 
 	t := o.tables[0]
 	t.hkeys = tr.HKeys
