@@ -453,7 +453,6 @@ func (db *Olric) updateRoutingOperation(req *protocol.Message) *protocol.Message
 	}
 
 	// owners(atomic.Value) is guarded by routingUpdateMtx against parallel writers.
-
 	// Calculate routing signature. This is useful to control rebalancing tasks.
 	atomic.StoreUint64(&routingSignature, db.hasher.Sum64(req.Value))
 	for partID, data := range table {
@@ -468,6 +467,16 @@ func (db *Olric) updateRoutingOperation(req *protocol.Message) *protocol.Message
 
 	db.setOwnedPartitionCount()
 
+	// Bootstrapped by the coordinator.
+	atomic.StoreInt32(&db.bootstrapped, 1)
+	// Collect report
+	data, err := db.prepareOwnershipReport()
+	if err != nil {
+		return req.Error(protocol.StatusInternalServerError, err)
+	}
+	res := req.Success()
+	res.Value = data
+
 	// Call rebalancer to rebalance partitions
 	db.wg.Add(1)
 	go func() {
@@ -477,17 +486,7 @@ func (db *Olric) updateRoutingOperation(req *protocol.Message) *protocol.Message
 		// Clean stale dmaps
 		db.deleteStaleDMaps()
 	}()
-
-	// Bootstrapped by the coordinator.
-	atomic.StoreInt32(&db.bootstrapped, 1)
 	db.log.V(3).Printf("[INFO] Routing table has been pushed by %s", coordinator)
-	// Collect report
-	data, err := db.prepareOwnershipReport()
-	if err != nil {
-		return req.Error(protocol.StatusInternalServerError, err)
-	}
-	res := req.Success()
-	res.Value = data
 	return res
 }
 
