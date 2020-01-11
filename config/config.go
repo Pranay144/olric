@@ -96,6 +96,7 @@ const (
 
 	DefaultLRUSamples int            = 5
 
+	// Assign this as EvictionPolicy in order to enable LRU eviction algorithm.
 	LRUEviction       EvictionPolicy = "LRU"
 )
 
@@ -112,8 +113,7 @@ type DMapCacheConfig struct {
 	// It limits the lifetime of the entries relative to the time of the last
 	// read or write access performed on them. The entries whose idle period exceeds
 	// this limit are expired and evicted automatically. An entry is idle if no Get,
-	// Put, PutEx, Expire, PutIf, PutIfEx on it. Configuration of MaxIdleDuration
-	// feature varies by preferred deployment method.
+	// Put, PutEx, Expire, PutIf, PutIfEx on it.
 	MaxIdleDuration time.Duration
 
 	// TTLDuration is useful to set a default TTL for every key/value pair a DMap instance.
@@ -145,8 +145,7 @@ type CacheConfig struct {
 	// It limits the lifetime of the entries relative to the time of the last
 	// read or write access performed on them. The entries whose idle period exceeds
 	// this limit are expired and evicted automatically. An entry is idle if no Get,
-	// Put, PutEx, Expire, PutIf, PutIfEx on it. Configuration of MaxIdleDuration
-	// feature varies by preferred deployment method.
+	// Put, PutEx, Expire, PutIf, PutIfEx on it.
 	MaxIdleDuration    time.Duration
 
 	// TTLDuration is useful to set a default TTL for every key/value pair a DMap instance.
@@ -186,8 +185,14 @@ type Config struct {
 	// Name is also used by the TCP server as Addr. It should be an IP address or domain name of the server.
 	Name string
 
+	// KeepAlivePeriod denotes whether the operating system should send keep-alive messages on the connection.
 	KeepAlivePeriod time.Duration
 
+	// Timeout for TCP dial.
+	//
+	// The timeout includes name resolution, if required. When using TCP, and the host in the address parameter
+	// resolves to multiple IP addresses, the timeout is spread over each consecutive dial, such that each is
+	// given an appropriate fraction of the time to connect.
 	DialTimeout time.Duration
 
 	RequestTimeout time.Duration
@@ -201,10 +206,16 @@ type Config struct {
 	// ReplicaCount is 1, by default.
 	ReplicaCount int
 
+	// Minimum number of successful reads to return a response for a read request.
 	ReadQuorum        int
+
+	// Minimum number of successful writes to return a response for a write request.
 	WriteQuorum       int
+
+	// Minimum number of members to form a cluster and run any query on the cluster.
 	MemberCountQuorum int32
 
+	// Switch to control read-repair algorithm which helps to reduce entropy.
 	ReadRepair bool
 
 	// Default value is SyncReplicationMode.
@@ -232,6 +243,8 @@ type Config struct {
 	Logger *log.Logger
 
 	Cache     *CacheConfig
+
+	// Minimum size(in-bytes) for append-only file
 	TableSize int
 
 	JoinRetryInterval time.Duration

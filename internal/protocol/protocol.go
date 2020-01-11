@@ -68,7 +68,7 @@ const (
 	OpDeleteBackup
 	OpDestroyDMap
 	OpMoveDMap
-	OpKeyCountOnPart
+	OpLengthOfPart
 	OpPipeline
 	OpPing
 	OpStats
@@ -152,8 +152,8 @@ type PutIfExExtra struct {
 	TTL       int64
 }
 
-// KeyCountOnPartExtra defines extra values for this operation.
-type KeyCountOnPartExtra struct {
+// LengthOfPartExtra defines extra values for this operation.
+type LengthOfPartExtra struct {
 	PartID uint64
 	Backup bool
 }
@@ -206,8 +206,8 @@ func loadExtras(raw []byte, op OpCode) (interface{}, error) {
 		extra := LockExtra{}
 		err := binary.Read(bytes.NewReader(raw), binary.BigEndian, &extra)
 		return extra, err
-	case OpKeyCountOnPart:
-		extra := KeyCountOnPartExtra{}
+	case OpLengthOfPart:
+		extra := LengthOfPartExtra{}
 		err := binary.Read(bytes.NewReader(raw), binary.BigEndian, &extra)
 		return extra, err
 	case OpIncr, OpDecr, OpGetPut:
