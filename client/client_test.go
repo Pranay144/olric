@@ -447,7 +447,6 @@ func TestClient_Incr(t *testing.T) {
 	if res != 101 {
 		t.Fatalf("Expected 101. Got: %v", res)
 	}
-
 }
 
 func TestClient_Decr(t *testing.T) {
@@ -502,7 +501,6 @@ func TestClient_Decr(t *testing.T) {
 	if res != -101 {
 		t.Fatalf("Expected -101. Got: %v", res)
 	}
-
 }
 
 func TestClient_GetPut(t *testing.T) {
