@@ -94,10 +94,10 @@ const (
 	// DefaultTableSize is 1MB if you don't set your own value.
 	DefaultTableSize = 1 << 20
 
-	DefaultLRUSamples int            = 5
+	DefaultLRUSamples int = 5
 
 	// Assign this as EvictionPolicy in order to enable LRU eviction algorithm.
-	LRUEviction       EvictionPolicy = "LRU"
+	LRUEviction EvictionPolicy = "LRU"
 )
 
 // EvictionPolicy denotes eviction policy. Currently: LRU or NONE.
@@ -113,27 +113,28 @@ type DMapCacheConfig struct {
 	// It limits the lifetime of the entries relative to the time of the last
 	// read or write access performed on them. The entries whose idle period exceeds
 	// this limit are expired and evicted automatically. An entry is idle if no Get,
-	// Put, PutEx, Expire, PutIf, PutIfEx on it.
+	// Put, PutEx, Expire, PutIf, PutIfEx on it. Configuration of MaxIdleDuration
+	// feature varies by preferred deployment method.
 	MaxIdleDuration time.Duration
 
 	// TTLDuration is useful to set a default TTL for every key/value pair a DMap instance.
-	TTLDuration     time.Duration
+	TTLDuration time.Duration
 
 	// MaxKeys denotes maximum key count on a particular node. So if you have 10 nodes with
 	// MaxKeys=100000, your key count in the cluster should be around MaxKeys*10=1000000
-	MaxKeys         int
+	MaxKeys int
 
 	// MaxInuse denotes maximum amount of in-use memory on a particular node. So if you have 10 nodes with
 	// MaxInuse=100M (it has to be in bytes), amount of in-use memory should be around MaxInuse*10=1G
-	MaxInuse        int
+	MaxInuse int
 
 	// LRUSamples denotes amount of randomly selected key count by the aproximate LRU implementation.
 	// Lower values are better for high performance. It's 5 by default.
-	LRUSamples      int
+	LRUSamples int
 
 	// EvictionPolicy determines the eviction policy in use. It's NONE by default.
 	// Set as LRU to enable LRU eviction policy.
-	EvictionPolicy  EvictionPolicy
+	EvictionPolicy EvictionPolicy
 }
 
 // CacheConfig denotes a global cache configuration for DMaps. You can still overwrite it by setting a
@@ -145,30 +146,31 @@ type CacheConfig struct {
 	// It limits the lifetime of the entries relative to the time of the last
 	// read or write access performed on them. The entries whose idle period exceeds
 	// this limit are expired and evicted automatically. An entry is idle if no Get,
-	// Put, PutEx, Expire, PutIf, PutIfEx on it.
-	MaxIdleDuration    time.Duration
+	// Put, PutEx, Expire, PutIf, PutIfEx on it. Configuration of MaxIdleDuration
+	// feature varies by preferred deployment method.
+	MaxIdleDuration time.Duration
 
 	// TTLDuration is useful to set a default TTL for every key/value pair a DMap instance.
-	TTLDuration        time.Duration
+	TTLDuration time.Duration
 
 	// MaxKeys denotes maximum key count on a particular node. So if you have 10 nodes with
 	// MaxKeys=100000, max key count in the cluster should around MaxKeys*10=1000000
-	MaxKeys            int
+	MaxKeys int
 
 	// MaxInuse denotes maximum amount of in-use memory on a particular node. So if you have 10 nodes with
 	// MaxInuse=100M (it has to be in bytes), max amount of in-use memory should be around MaxInuse*10=1G
-	MaxInuse           int
+	MaxInuse int
 
 	// LRUSamples denotes amount of randomly selected key count by the aproximate LRU implementation.
 	// Lower values are better for high performance. It's 5 by default.
-	LRUSamples         int
+	LRUSamples int
 
 	// EvictionPolicy determines the eviction policy in use. It's NONE by default.
 	// Set as LRU to enable LRU eviction policy.
-	EvictionPolicy     EvictionPolicy
+	EvictionPolicy EvictionPolicy
 
 	// DMapConfigs is useful to set custom cache config per DMap instance.
-	DMapConfigs        map[string]DMapCacheConfig
+	DMapConfigs map[string]DMapCacheConfig
 }
 
 // Config is the configuration to create a Olric instance.
@@ -177,7 +179,7 @@ type Config struct {
 	LogVerbosity int32
 
 	// Default LogLevel is DEBUG. Valid ones: "DEBUG", "WARN", "ERROR", "INFO"
-	LogLevel     string
+	LogLevel string
 
 	// Name of this node in the cluster. This must be unique in the cluster. If this is not set,
 	// Olric will set it to the hostname of the running machine. Example: node1.my-cluster.net
@@ -207,10 +209,10 @@ type Config struct {
 	ReplicaCount int
 
 	// Minimum number of successful reads to return a response for a read request.
-	ReadQuorum        int
+	ReadQuorum int
 
 	// Minimum number of successful writes to return a response for a write request.
-	WriteQuorum       int
+	WriteQuorum int
 
 	// Minimum number of members to form a cluster and run any query on the cluster.
 	MemberCountQuorum int32
@@ -242,7 +244,7 @@ type Config struct {
 	// at the same time.
 	Logger *log.Logger
 
-	Cache     *CacheConfig
+	Cache *CacheConfig
 
 	// Minimum size(in-bytes) for append-only file
 	TableSize int

@@ -35,8 +35,10 @@ type SlabInfo struct {
 
 // DMap denotes a distributed map instance on the cluster.
 type DMap struct {
-	Name string
+	Name   string
 	Length int
+
+	// Statistics about memory representation of the DMap.
 	SlabInfo SlabInfo
 }
 
