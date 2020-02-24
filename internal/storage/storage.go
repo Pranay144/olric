@@ -16,9 +16,10 @@
 package storage
 
 import (
+	"regexp"
+
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack"
-	"regexp"
 )
 
 const (
@@ -376,6 +377,8 @@ func (s *Storage) Range(f func(hkey uint64, vdata *VData) bool) {
 	}
 }
 
+
+// MatchOnKey calls a regular expression on keys and provides an iterator.
 func (s *Storage) MatchOnKey(expr string, f func(hkey uint64, vdata *VData) bool) error {
 	if len(s.tables) == 0 {
 		panic("tables cannot be empty")
