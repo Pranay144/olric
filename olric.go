@@ -537,6 +537,9 @@ func (db *Olric) registerOperations() {
 
 	// Node Stats
 	db.operations[protocol.OpStats] = db.statsOperation
+
+	// Distributed Query
+	db.operations[protocol.OpLocalQuery] = db.localQueryOperation
 }
 
 // Shutdown stops background servers and leaves the cluster.
@@ -699,14 +702,18 @@ func (db *Olric) createDMap(part *partition, name string, str *storage.Storage) 
 	return nm, nil
 }
 
-// getDMap loads or creates a dmap.
-func (db *Olric) getDMap(name string, hkey uint64) (*dmap, error) {
-	part := db.getPartition(hkey)
+func (db *Olric) getOrCreateDMap(part *partition, name string) (*dmap, error) {
 	dm, ok := part.m.Load(name)
 	if ok {
 		return dm.(*dmap), nil
 	}
 	return db.createDMap(part, name, nil)
+}
+
+// getDMap loads or creates a dmap.
+func (db *Olric) getDMap(name string, hkey uint64) (*dmap, error) {
+	part := db.getPartition(hkey)
+	return db.getOrCreateDMap(part, name)
 }
 
 func (db *Olric) getBackupDMap(name string, hkey uint64) (*dmap, error) {
