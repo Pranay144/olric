@@ -29,6 +29,8 @@ import (
 
 const parallelQueryCount = 2
 
+type queryResult map[uint64]*storage.VData
+
 // Cursor implements distributed query on DMaps.
 type Cursor struct {
 	db     *Olric
@@ -54,22 +56,29 @@ func (dm *DMap) Query(q query.M) (*Cursor, error) {
 	}, nil
 }
 
+func (db *Olric) runLocalQuery(partID uint64, name string, q query.M) (queryResult, error) {
+	part := db.partitions[partID]
+	dm, err := db.getOrCreateDMap(part, name)
+	if err != nil {
+		return nil, err
+	}
+
+	p := newQueryPipeline(db)
+	result, err := p.execute(dm, q)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (db *Olric) localQueryOperation(req *protocol.Message) *protocol.Message {
 	q, err := query.FromByte(req.Value)
 	if err != nil {
 		return req.Error(protocol.StatusInternalServerError, err)
 	}
 
-	// We currently have only regexMatch on keys.
 	partID := req.Extra.(protocol.LocalQueryExtra).PartID
-	part := db.partitions[partID]
-	dm, err := db.getOrCreateDMap(part, req.DMap)
-	if err != nil {
-		return req.Error(protocol.StatusInternalServerError, err)
-	}
-
-	p := newQueryPipeline(db)
-	result, err := p.execute(dm, q)
+	result, err := db.runLocalQuery(partID, req.DMap, q)
 	if err != nil {
 		return req.Error(protocol.StatusInternalServerError, err)
 	}
@@ -83,15 +92,10 @@ func (db *Olric) localQueryOperation(req *protocol.Message) *protocol.Message {
 	return resp
 }
 
-func (c *Cursor) reconcileResponses(responses []*protocol.Message) (map[uint64]*storage.VData, error) {
-	result := make(map[uint64]*storage.VData)
+func (c *Cursor) reconcileResponses(responses []queryResult) (queryResult, error) {
+	result := make(queryResult)
 	for _, response := range responses {
-		tmp := make(map[uint64]*storage.VData)
-		err := msgpack.Unmarshal(response.Value, &tmp)
-		if err != nil {
-			return nil, err
-		}
-		for hkey, val1 := range tmp {
+		for hkey, val1 := range response {
 			if val2, ok := result[hkey]; ok {
 				if val1.Timestamp > val2.Timestamp {
 					result[hkey] = val1
@@ -111,8 +115,17 @@ func (c *Cursor) runQueryOnOwners(partID uint64) ([]*storage.VData, error) {
 	}
 
 	owners := c.db.partitions[partID].loadOwners()
-	var responses []*protocol.Message
+	var responses []queryResult
 	for _, owner := range owners {
+		if hostCmp(owner, c.db.this) {
+			response, err := c.db.runLocalQuery(partID, c.name, c.query)
+			if err != nil {
+				return nil, err
+			}
+			responses = append(responses, response)
+
+			continue
+		}
 		msg := &protocol.Message{
 			DMap:  c.name,
 			Value: value,
@@ -124,7 +137,13 @@ func (c *Cursor) runQueryOnOwners(partID uint64) ([]*storage.VData, error) {
 		if err != nil {
 			return nil, fmt.Errorf("query call is failed: %w", err)
 		}
-		responses = append(responses, response)
+
+		tmp := make(queryResult)
+		err = msgpack.Unmarshal(response.Value, &tmp)
+		if err != nil {
+			return nil, err
+		}
+		responses = append(responses, tmp)
 	}
 	res, err := c.reconcileResponses(responses)
 	if err != nil {
