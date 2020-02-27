@@ -540,6 +540,7 @@ func (db *Olric) registerOperations() {
 
 	// Distributed Query
 	db.operations[protocol.OpLocalQuery] = db.localQueryOperation
+	db.operations[protocol.OpQuery] = db.exQueryOperation
 }
 
 // Shutdown stops background servers and leaves the cluster.

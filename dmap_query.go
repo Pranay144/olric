@@ -29,7 +29,9 @@ import (
 
 const parallelQueryCount = 2
 
-type queryResult map[uint64]*storage.VData
+type QueryResponse map[string]interface{}
+
+type queryResponse map[uint64]*storage.VData
 
 // Cursor implements distributed query on DMaps.
 type Cursor struct {
@@ -56,7 +58,7 @@ func (dm *DMap) Query(q query.M) (*Cursor, error) {
 	}, nil
 }
 
-func (db *Olric) runLocalQuery(partID uint64, name string, q query.M) (queryResult, error) {
+func (db *Olric) runLocalQuery(partID uint64, name string, q query.M) (queryResponse, error) {
 	part := db.partitions[partID]
 	dm, err := db.getOrCreateDMap(part, name)
 	if err != nil {
@@ -92,8 +94,8 @@ func (db *Olric) localQueryOperation(req *protocol.Message) *protocol.Message {
 	return resp
 }
 
-func (c *Cursor) reconcileResponses(responses []queryResult) (queryResult, error) {
-	result := make(queryResult)
+func (c *Cursor) reconcileResponses(responses []queryResponse) (queryResponse, error) {
+	result := make(queryResponse)
 	for _, response := range responses {
 		for hkey, val1 := range response {
 			if val2, ok := result[hkey]; ok {
@@ -115,7 +117,7 @@ func (c *Cursor) runQueryOnOwners(partID uint64) ([]*storage.VData, error) {
 	}
 
 	owners := c.db.partitions[partID].loadOwners()
-	var responses []queryResult
+	var responses []queryResponse
 	for _, owner := range owners {
 		if hostCmp(owner, c.db.this) {
 			response, err := c.db.runLocalQuery(partID, c.name, c.query)
@@ -138,7 +140,7 @@ func (c *Cursor) runQueryOnOwners(partID uint64) ([]*storage.VData, error) {
 			return nil, fmt.Errorf("query call is failed: %w", err)
 		}
 
-		tmp := make(queryResult)
+		tmp := make(queryResponse)
 		err = msgpack.Unmarshal(response.Value, &tmp)
 		if err != nil {
 			return nil, err
@@ -235,4 +237,42 @@ func (c *Cursor) Range(f func(key string, value interface{}) bool) error {
 // Close cancels the underlying context and background goroutines stops running.
 func (c *Cursor) Close() {
 	c.cancel()
+}
+
+func (db *Olric) exQueryOperation(req *protocol.Message) *protocol.Message {
+	dm, err := db.NewDMap(req.DMap)
+	if err != nil {
+		return req.Error(protocol.StatusInternalServerError, err)
+	}
+	q, err := query.FromByte(req.Value)
+	if err != nil {
+		return req.Error(protocol.StatusInternalServerError, err)
+	}
+	c, err := dm.Query(q)
+	if err != nil {
+		return req.Error(protocol.StatusInternalServerError, err)
+	}
+	defer c.Close()
+
+	partID := req.Extra.(protocol.QueryExtra).PartID
+	if partID >= db.config.PartitionCount {
+		return req.Error(protocol.StatusBadRequest, "invalid partition id")
+	}
+	responses, err := c.runQueryOnOwners(partID)
+	if err != nil {
+		return req.Error(protocol.StatusInternalServerError, err)
+	}
+
+	data := make(QueryResponse)
+	for _, response := range responses {
+		data[response.Key] = response.Value
+	}
+
+	value, err := db.serializer.Marshal(data)
+	if err != nil {
+		return req.Error(protocol.StatusInternalServerError, err)
+	}
+	resp := req.Success()
+	resp.Value = value
+	return resp
 }

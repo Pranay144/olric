@@ -22,13 +22,13 @@ import (
 
 type queryPipeline struct {
 	db     *Olric
-	result queryResult
+	result queryResponse
 }
 
 func newQueryPipeline(db *Olric) *queryPipeline {
 	return &queryPipeline{
 		db:     db,
-		result: make(queryResult),
+		result: make(queryResponse),
 	}
 }
 
@@ -61,7 +61,7 @@ func (p *queryPipeline) doOnKey(dm *dmap, q query.M) error {
 	})
 }
 
-func (p *queryPipeline) execute(dm *dmap, q query.M) (queryResult, error) {
+func (p *queryPipeline) execute(dm *dmap, q query.M) (queryResponse, error) {
 	if onKey, ok := q["$onKey"]; ok {
 		if err := p.doOnKey(dm, onKey.(query.M)); err != nil {
 			return nil, err

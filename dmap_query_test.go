@@ -16,7 +16,11 @@ package olric
 
 import (
 	"context"
+	"github.com/buraksezer/olric/internal/protocol"
+	"github.com/buraksezer/olric/internal/transport"
 	"github.com/buraksezer/olric/query"
+	"github.com/vmihailenco/msgpack"
+	"strings"
 	"testing"
 	"time"
 )
@@ -221,7 +225,6 @@ func TestDMap_QueryOnKeyIgnoreValues(t *testing.T) {
 	}
 }
 
-
 func TestDMap_IteratorCluster(t *testing.T) {
 	c := newTestCluster(nil)
 	defer c.teardown()
@@ -281,5 +284,135 @@ func TestDMap_IteratorCluster(t *testing.T) {
 
 	if count != 100 {
 		t.Fatalf("Expected count is 100. Got: %d", count)
+	}
+}
+
+func TestDMap_Query(t *testing.T) {
+	c := testSingleReplicaConfig()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	c.Started = func() {
+		cancel()
+	}
+
+	db, err := newDB(c)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
+	defer func() {
+		err = db.Shutdown(context.Background())
+		if err != nil {
+			db.log.V(2).Printf("[ERROR] Failed to shutdown Olric: %v", err)
+		}
+	}()
+	<-ctx.Done()
+	dm, err := db.NewDMap("mydmap")
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
+
+	var key string
+	for i := 0; i < 100; i++ {
+		if i%2 == 0 {
+			key = "even:" + bkey(i)
+		} else {
+			key = "odd:" + bkey(i)
+		}
+		err = dm.Put(key, i)
+		if err != nil {
+			t.Fatalf("Expected nil. Got: %v", err)
+		}
+	}
+
+	q := query.M{
+		"$onKey": query.M{
+			"$regexMatch": "even:",
+		},
+	}
+	value, err := msgpack.Marshal(q)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
+	m := &protocol.Message{
+		DMap:  "mydmap",
+		Value: value,
+		Extra: protocol.QueryExtra{PartID: 0},
+	}
+	cc := &transport.ClientConfig{
+		Addrs:   []string{db.config.Name},
+		MaxConn: 10,
+	}
+	cl := transport.NewClient(cc)
+	resp, err := cl.Request(protocol.OpQuery, m)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
+	if resp.Status != protocol.StatusOK {
+		t.Fatalf("Expected protocol.StatusOK (%d). Got: %d", protocol.StatusOK, resp.Status)
+	}
+	results, err := db.unmarshalValue(resp.Value)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
+
+	for key, value := range results.(QueryResponse){
+		if !strings.HasPrefix(key, "even:") {
+			t.Fatalf("Expected prefix is even:. Got: %s", key)
+		}
+
+		var v interface{}
+		err = db.serializer.Unmarshal(value.([]byte), &v)
+		if err != nil {
+			t.Fatalf("Expected nil. Got: %v", err)
+		}
+		if v.(int) % 2 != 0 {
+			t.Fatalf("Expected even number. Got: %v", v)
+		}
+	}
+}
+
+func TestDMap_QueryEndOfKeySpace(t *testing.T) {
+	c := testSingleReplicaConfig()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	c.Started = func() {
+		cancel()
+	}
+
+	db, err := newDB(c)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
+	defer func() {
+		err = db.Shutdown(context.Background())
+		if err != nil {
+			db.log.V(2).Printf("[ERROR] Failed to shutdown Olric: %v", err)
+		}
+	}()
+	<-ctx.Done()
+
+	q := query.M{
+		"$onKey": query.M{
+			"$regexMatch": "even:",
+		},
+	}
+	value, err := msgpack.Marshal(q)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
+	m := &protocol.Message{
+		DMap:  "mydmap",
+		Value: value,
+		Extra: protocol.QueryExtra{PartID: 300},
+	}
+	cc := &transport.ClientConfig{
+		Addrs:   []string{db.config.Name},
+		MaxConn: 10,
+	}
+	cl := transport.NewClient(cc)
+	resp, err := cl.Request(protocol.OpQuery, m)
+	if err != nil {
+		t.Fatalf("Expected nil. Got: %v", err)
+	}
+	if resp.Status != protocol.StatusBadRequest {
+		t.Fatalf("Expected protocol.BadRequest (%d). Got: %d", protocol.StatusBadRequest, resp.Status)
 	}
 }
