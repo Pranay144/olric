@@ -167,12 +167,10 @@ func (c *Client) unmarshalValue(rawval interface{}) (interface{}, error) {
 }
 
 func (c *Client) processGetResponse(resp *protocol.Message) (interface{}, error) {
-	var value interface{}
 	if err := checkStatusCode(resp); err != nil {
-		return value, err
+		return nil, err
 	}
-	err := c.serializer.Unmarshal(resp.Value, &value)
-	return value, err
+	return c.unmarshalValue(resp.Value)
 }
 
 // Get gets the value for the given key. It returns ErrKeyNotFound if the DB does not contains the key.
@@ -353,9 +351,11 @@ func (c *Client) processIncrDecrResponse(resp *protocol.Message) (int, error) {
 	if err := checkStatusCode(resp); err != nil {
 		return 0, err
 	}
-	var res interface{}
-	err := c.serializer.Unmarshal(resp.Value, &res)
-	return res.(int), err
+	res, err := c.unmarshalValue(resp.Value)
+	if err != nil {
+		return 0, err
+	}
+	return res.(int), nil
 }
 
 func (c *Client) incrDecr(op protocol.OpCode, name, key string, delta int) (int, error) {
@@ -392,12 +392,12 @@ func (c *Client) processGetPutResponse(resp *protocol.Message) (interface{}, err
 	if err := checkStatusCode(resp); err != nil {
 		return nil, err
 	}
-	var oldval interface{}
-	if len(resp.Value) != 0 {
-		err := c.serializer.Unmarshal(resp.Value, &oldval)
-		if err != nil {
-			return nil, err
-		}
+	if len(resp.Value) == 0 {
+		return nil, nil
+	}
+	oldval, err := c.unmarshalValue(resp.Value)
+	if err != nil {
+		return nil, err
 	}
 	return oldval, nil
 }
