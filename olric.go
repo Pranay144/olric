@@ -757,6 +757,8 @@ func (db *Olric) prepareResponse(req *protocol.Message, err error) *protocol.Mes
 		return req.Error(protocol.StatusErrClusterQuorum, err)
 	case err == ErrUnknownOperation:
 		return req.Error(protocol.StatusErrUnknownOperation, err)
+	case err == ErrEndOfQuery:
+		return req.Error(protocol.StatusErrEndOfQuery, err)
 	default:
 		return req.Error(protocol.StatusInternalServerError, err)
 	}
@@ -789,6 +791,8 @@ func (db *Olric) requestTo(addr string, opcode protocol.OpCode, req *protocol.Me
 		return nil, ErrKeyFound
 	case resp.Status == protocol.StatusErrClusterQuorum:
 		return nil, ErrClusterQuorum
+	case resp.Status == protocol.StatusErrEndOfQuery:
+		return nil, ErrEndOfQuery
 	case resp.Status == protocol.StatusErrUnknownOperation:
 		return nil, ErrUnknownOperation
 	}

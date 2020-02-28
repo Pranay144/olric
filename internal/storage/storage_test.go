@@ -502,7 +502,7 @@ func TestStorage_MatchOnKey(t *testing.T) {
 	hkeys := make(map[uint64]struct{})
 	var key string
 	for i := 0; i < 100; i++ {
-		if i % 2 == 0 {
+		if i%2 == 0 {
 			key = "even:" + strconv.Itoa(i)
 		} else {
 			key = "odd:" + strconv.Itoa(i)

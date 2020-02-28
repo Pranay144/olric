@@ -32,7 +32,7 @@ func Validate(q M) error {
 		return fmt.Errorf("empty query")
 	}
 	for keyword, value := range q {
-		switch keyword{
+		switch keyword {
 		case "$onKey", "$onValue", "$options":
 			val, ok := value.(M)
 			if !ok {
@@ -84,4 +84,3 @@ func FromByte(data []byte) (M, error) {
 	}
 	return buildQuery(q), nil
 }
-

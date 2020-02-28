@@ -16,6 +16,7 @@ package olric
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -27,10 +28,11 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-const parallelQueryCount = 2
+const NumParallelQuery = 2
+
+var ErrEndOfQuery = errors.New("end of query")
 
 type QueryResponse map[string]interface{}
-
 type queryResponse map[uint64]*storage.VData
 
 // Cursor implements distributed query on DMaps.
@@ -172,7 +174,7 @@ func (c *Cursor) runQueryOnCluster(results chan []*storage.VData, errCh chan err
 		defer mu.Unlock()
 		return multierror.Append(e, errs)
 	}
-	sem := semaphore.NewWeighted(parallelQueryCount)
+	sem := semaphore.NewWeighted(NumParallelQuery)
 	for partID := uint64(0); partID < c.db.config.PartitionCount; partID++ {
 		err := sem.Acquire(c.ctx, 1)
 		if err != nil {
@@ -213,7 +215,7 @@ func (c *Cursor) Range(f func(key string, value interface{}) bool) error {
 	defer c.Close()
 
 	// Currently we have only 2 parallel query on the cluster. It's good enough for a smooth operation.
-	results := make(chan []*storage.VData, parallelQueryCount)
+	results := make(chan []*storage.VData, NumParallelQuery)
 	errCh := make(chan error, 1)
 
 	c.db.wg.Add(1)
@@ -256,7 +258,7 @@ func (db *Olric) exQueryOperation(req *protocol.Message) *protocol.Message {
 
 	partID := req.Extra.(protocol.QueryExtra).PartID
 	if partID >= db.config.PartitionCount {
-		return req.Error(protocol.StatusBadRequest, "invalid partition id")
+		return req.Error(protocol.StatusErrEndOfQuery, "end of query")
 	}
 	responses, err := c.runQueryOnOwners(partID)
 	if err != nil {
@@ -268,7 +270,7 @@ func (db *Olric) exQueryOperation(req *protocol.Message) *protocol.Message {
 		data[response.Key] = response.Value
 	}
 
-	value, err := db.serializer.Marshal(data)
+	value, err := msgpack.Marshal(data)
 	if err != nil {
 		return req.Error(protocol.StatusInternalServerError, err)
 	}

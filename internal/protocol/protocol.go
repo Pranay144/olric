@@ -94,6 +94,7 @@ const (
 	StatusErrKeyFound
 	StatusErrClusterQuorum
 	StatusErrUnknownOperation
+	StatusErrEndOfQuery
 )
 
 const headerSize int64 = 12

@@ -354,7 +354,7 @@ func TestDMap_Query(t *testing.T) {
 		t.Fatalf("Expected nil. Got: %v", err)
 	}
 
-	for key, value := range results.(QueryResponse){
+	for key, value := range results.(QueryResponse) {
 		if !strings.HasPrefix(key, "even:") {
 			t.Fatalf("Expected prefix is even:. Got: %s", key)
 		}
@@ -364,7 +364,7 @@ func TestDMap_Query(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Expected nil. Got: %v", err)
 		}
-		if v.(int) % 2 != 0 {
+		if v.(int)%2 != 0 {
 			t.Fatalf("Expected even number. Got: %v", v)
 		}
 	}
