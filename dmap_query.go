@@ -308,7 +308,7 @@ func (db *Olric) exQueryOperation(req *protocol.Message) *protocol.Message {
 
 	partID := req.Extra.(protocol.QueryExtra).PartID
 	if partID >= db.config.PartitionCount {
-		return req.Error(protocol.StatusErrEndOfQuery, "end of query")
+		return req.Error(protocol.StatusErrEndOfQuery, ErrEndOfQuery)
 	}
 	responses, err := c.runQueryOnOwners(partID)
 	if err != nil {
