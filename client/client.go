@@ -623,6 +623,52 @@ func (c *Cursor) Range(f func(key string, value interface{}) bool) error {
 }
 
 // Query runs a distributed query on a DMap instance.
+// Olric supports a very simple query DSL and now, it only scans keys. The query DSL has very
+// few keywords:
+//
+// $onKey: Runs the given query on keys or manages options on keys for a given query.
+//
+// $onValue: Runs the given query on values or manages options on values for a given query.
+//
+//
+// $options: Useful to modify data returned from a query
+//
+// Keywords for $options:
+//
+// $ignore: Ignores a value.
+//
+// A distributed query looks like the following:
+//
+//   query.M{
+// 	  "$onKey": query.M{
+// 		  "$regexMatch": "^even:",
+// 		  "$options": query.M{
+// 			  "$onValue": query.M{
+// 				  "$ignore": true,
+// 			  },
+// 		  },
+// 	  },
+//   }
+//
+// This query finds the keys starts with "even:", drops the values and returns only keys.
+// If you also want to retrieve the values, just remove the $options directive:
+//
+//   query.M{
+// 	  "$onKey": query.M{
+// 		  "$regexMatch": "^even:",
+// 	  },
+//   }
+//
+// In order to iterate over all the keys:
+//
+//   query.M{
+// 	  "$onKey": query.M{
+// 		  "$regexMatch": "",
+// 	  },
+//   }
+//
+// Query function returns a cursor which has Range and Close methods. Please take look at the Range
+// function for further info.
 func (d *DMap) Query(q query.M) (*Cursor, error) {
 	if err := query.Validate(q); err != nil {
 		return nil, err
