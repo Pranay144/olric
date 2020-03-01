@@ -502,6 +502,7 @@ func (d *DMap) PutIfEx(key string, value interface{}, timeout time.Duration, fla
 	return checkStatusCode(resp)
 }
 
+// Cursor implements distributed query on DMaps. Call Cursor.Range to iterate over query results.
 type Cursor struct {
 	dm     *DMap
 	query  []byte
@@ -511,11 +512,12 @@ type Cursor struct {
 	cancel context.CancelFunc
 }
 
+// Close cancels the underlying context and stops background goroutines.
 func (c *Cursor) Close() {
 	c.cancel()
 }
 
-func (c *Cursor) runQueryForPartID(partID uint64) (olric.QueryResponse, error) {
+func (c *Cursor) runQueryOnPartition(partID uint64) (olric.QueryResponse, error) {
 	m := &protocol.Message{
 		DMap:  c.dm.name,
 		Value: c.query,
@@ -530,6 +532,7 @@ func (c *Cursor) runQueryForPartID(partID uint64) (olric.QueryResponse, error) {
 	if err := checkStatusCode(resp); err != nil {
 		return nil, err
 	}
+
 	var qr olric.QueryResponse
 	err = msgpack.Unmarshal(resp.Value, &qr)
 	if err != nil {
@@ -551,6 +554,7 @@ func (c *Cursor) runQueryOnCluster(results chan olric.QueryResponse, errCh chan 
 		defer c.mu.Unlock()
 		return multierror.Append(e, errs)
 	}
+
 	sem := semaphore.NewWeighted(olric.NumParallelQuery)
 	for {
 		err := sem.Acquire(c.ctx, 1)
@@ -567,7 +571,7 @@ func (c *Cursor) runQueryOnCluster(results chan olric.QueryResponse, errCh chan 
 			defer wg.Done()
 			defer sem.Release(1)
 
-			resp, err := c.runQueryForPartID(id)
+			resp, err := c.runQueryOnPartition(id)
 			if err == olric.ErrEndOfQuery {
 				c.Close()
 				return
@@ -592,6 +596,8 @@ func (c *Cursor) runQueryOnCluster(results chan olric.QueryResponse, errCh chan 
 	errCh <- errs
 }
 
+// Range calls f sequentially for each key and value yielded from the cursor. If f returns false,
+// range stops the iteration.
 func (c *Cursor) Range(f func(key string, value interface{}) bool) error {
 	defer c.Close()
 
@@ -616,7 +622,11 @@ func (c *Cursor) Range(f func(key string, value interface{}) bool) error {
 	return <-errCh
 }
 
+// Query runs a distributed query on a DMap instance.
 func (d *DMap) Query(q query.M) (*Cursor, error) {
+	if err := query.Validate(q); err != nil {
+		return nil, err
+	}
 	qr, err := msgpack.Marshal(q)
 	if err != nil {
 		return nil, err

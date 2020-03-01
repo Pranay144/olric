@@ -349,12 +349,12 @@ func TestDMap_Query(t *testing.T) {
 	if resp.Status != protocol.StatusOK {
 		t.Fatalf("Expected protocol.StatusOK (%d). Got: %d", protocol.StatusOK, resp.Status)
 	}
-	results, err := db.unmarshalValue(resp.Value)
-	if err != nil {
+	var qr QueryResponse
+	if err = msgpack.Unmarshal(resp.Value, &qr); err != nil {
 		t.Fatalf("Expected nil. Got: %v", err)
 	}
 
-	for key, value := range results.(QueryResponse) {
+	for key, value := range qr {
 		if !strings.HasPrefix(key, "even:") {
 			t.Fatalf("Expected prefix is even:. Got: %s", key)
 		}
@@ -412,7 +412,7 @@ func TestDMap_QueryEndOfKeySpace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected nil. Got: %v", err)
 	}
-	if resp.Status != protocol.StatusBadRequest {
-		t.Fatalf("Expected protocol.BadRequest (%d). Got: %d", protocol.StatusBadRequest, resp.Status)
+	if resp.Status != protocol.StatusErrEndOfQuery {
+		t.Fatalf("Expected protocol.ErrEndOfQuery (%d). Got: %d", protocol.StatusErrEndOfQuery, resp.Status)
 	}
 }

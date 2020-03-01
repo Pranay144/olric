@@ -16,10 +16,14 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"github.com/vmihailenco/msgpack"
 	"reflect"
 )
+
+// ErrInvalidQuery denotes a given query is empty or badly formatted.
+var ErrInvalidQuery = errors.New("invalid query")
 
 // M is an unordered representation of a query. This type should be used when the order of the elements does not matter.
 // This type is handled as a regular map[string]interface{} when encoding and decoding. Elements will be serialized in
@@ -28,8 +32,8 @@ type M map[string]interface{}
 
 // Validate validates a query.
 func Validate(q M) error {
-	if len(q) == 0 {
-		return fmt.Errorf("empty query")
+	if q == nil {
+		return ErrInvalidQuery
 	}
 	for keyword, value := range q {
 		switch keyword {

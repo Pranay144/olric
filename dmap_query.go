@@ -44,7 +44,7 @@ type Cursor struct {
 	cancel context.CancelFunc
 }
 
-// Query runs a query on a DMap instance.
+// Query runs a distributed query on a DMap instance.
 func (dm *DMap) Query(q query.M) (*Cursor, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	err := query.Validate(q)
@@ -174,9 +174,13 @@ func (c *Cursor) runQueryOnCluster(results chan []*storage.VData, errCh chan err
 		defer mu.Unlock()
 		return multierror.Append(e, errs)
 	}
+
 	sem := semaphore.NewWeighted(NumParallelQuery)
 	for partID := uint64(0); partID < c.db.config.PartitionCount; partID++ {
 		err := sem.Acquire(c.ctx, 1)
+		if err == context.Canceled {
+			break
+		}
 		if err != nil {
 			errs = appendError(err)
 			break
