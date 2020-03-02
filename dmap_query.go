@@ -30,9 +30,14 @@ import (
 
 const NumParallelQuery = 2
 
+// ErrEndOfQuery is the error returned by Range when no more data is available.
+// Functions should return ErrEndOfQuery only to signal a graceful end of input.
 var ErrEndOfQuery = errors.New("end of query")
 
+// QueryResponse denotes returned data by a node for query.
 type QueryResponse map[string]interface{}
+
+// internal representation of query response
 type queryResponse map[uint64]*storage.VData
 
 // Cursor implements distributed query on DMaps.
@@ -51,7 +56,6 @@ type Cursor struct {
 // $onKey: Runs the given query on keys or manages options on keys for a given query.
 //
 // $onValue: Runs the given query on values or manages options on values for a given query.
-//
 //
 // $options: Useful to modify data returned from a query
 //
