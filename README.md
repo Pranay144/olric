@@ -76,9 +76,9 @@ Olric is in early stages of development. The package API and client protocol may
 * [Architecture](#architecture)
   * [Overview](#overview)
   * [Consistency and Replication Model](#consistency-and-replication-model)
+    * [PACELC Theorem](#pacelc-theorem)
     * [Read-Repair on DMaps](#read-repair-on-dmaps)
     * [Quorum-based Replica Control](#quorum-based-replica-control)
-    * [PACELC Theorem](#pacelc-theorem)
   * [Eviction](#eviction)
     * [Expire with TTL](#expire-with-ttl)
     * [Expire with MaxIdleDuration](#expire-with-maxidleduration)
@@ -105,7 +105,7 @@ Olric is in early stages of development. The package API and client protocol may
 * Different eviction policies: LRU, MaxIdleDuration and Time-To-Live(TTL),
 * Highly available,
 * Horizontally scalable,
-* Provides best-effort consistency guarantees without being a complete CP solution,
+* Provides best-effort consistency guarantees without being a complete CP (indeed PA/EC) solution,
 * Distributes load fairly among cluster members with a [consistent hash function](https://github.com/buraksezer/consistent),
 * Supports replication by default(with sync and async options),
 * Quorum-based voting for replica control,
@@ -797,7 +797,28 @@ model.
 * **sync**: Blocks until write/delete operation is applied by backup owners.
 * **async**: Just fire & forget.
 
+#### PACELC Theorem
+
+From Wikipedia:
+
+> In theoretical computer science, the [PACELC theorem](https://en.wikipedia.org/wiki/PACELC_theorem) is an extension to the [CAP theorem](https://en.wikipedia.org/wiki/CAP_theorem). It states that in case of network partitioning (P) in a 
+> distributed computer system, one has to choose between availability (A) and consistency (C) (as per the CAP theorem), but else (E), even when the system is 
+> running normally in the absence of partitions, one has to choose between latency (L) and consistency (C).
+
+In the context of PACELC theorem, Olric is a **PA/EC** product. It means that Olric is considered to be **consistent** data store if the network is stable. 
+Because the key space is divided between partitions and every partition is controlled by its primary owner. All operations on DMaps are redirected to the 
+partition owner. 
+
+In the case of network partitioning, Olric chooses **availability** over consistency. So that you can still access some parts of the cluster when the network is unreliable, 
+but the cluster may return inconsistent results.  
+
 Olric implements read-repair and quorum based voting system to deal with inconsistencies in the DMaps. 
+
+Readings on PACELC theorem:
+* [Please stop calling databases CP or AP](https://martin.kleppmann.com/2015/05/11/please-stop-calling-databases-cp-or-ap.html)
+* [Problems with CAP, and Yahoo’s little known NoSQL system](https://dbmsmusings.blogspot.com/2010/04/problems-with-cap-and-yahoos-little.html)
+* [A Critique of the CAP Theorem](https://arxiv.org/abs/1509.05393)
+* [Hazelcast and the Mythical PA/EC System](https://dbmsmusings.blogspot.com/2017/10/hazelcast-and-mythical-paec-system.html)
 
 #### Read-Repair on DMaps
 
@@ -810,18 +831,6 @@ Read-repair is disabled by default for the sake of performance. If you have a us
 scenario, you can enable read-repair via configuration. 
 
 #### Quorum-based replica control
-
-#### PACELC Theorem
-
-From Wikipedia:
-
-> In theoretical computer science, the [PACELC theorem](https://en.wikipedia.org/wiki/PACELC_theorem) is an extension to the [CAP theorem](https://en.wikipedia.org/wiki/CAP_theorem). It states that in case of network partitioning (P) in a 
-> distributed computer system, one has to choose between availability (A) and consistency (C) (as per the CAP theorem), but else (E), even when the system is 
-> running normally in the absence of partitions, one has to choose between latency (L) and consistency (C).
-
-In the context of PACELC theorem, Olric is a **PA/EC** product. It means that Olric is considered to be **consistent** data store if the network is stable. 
-Because the key space is divided between partitions and every partition is controlled by its primary owner. All operations on DMaps are redirected to the 
-partition owner. 
 
 ### Eviction
 Olric supports different policies to evict keys from distributed maps. 
