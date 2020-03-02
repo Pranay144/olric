@@ -2,8 +2,7 @@
 
 [![GoDoc](http://img.shields.io/badge/godoc-reference-blue.svg?style=flat)](https://godoc.org/github.com/buraksezer/olric) [![Coverage Status](https://coveralls.io/repos/github/buraksezer/olric/badge.svg?branch=master)](https://coveralls.io/github/buraksezer/olric?branch=master) [![Build Status](https://travis-ci.org/buraksezer/olric.svg?branch=master)](https://travis-ci.org/buraksezer/olric) [![Go Report Card](https://goreportcard.com/badge/github.com/buraksezer/olric)](https://goreportcard.com/report/github.com/buraksezer/olric) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-Distributed, eventually consistent, in-memory key/value data store and cache. It can be used both as an embedded Go 
-library and as a language-independent service.
+Distributed cache and in-memory key/value data store. It can be used both as an embedded Go library and as a language-independent service.
 
 With Olric, you can instantly create a fast, scalable, shared pool of RAM across a cluster of computers.
 
@@ -831,6 +830,11 @@ Read-repair is disabled by default for the sake of performance. If you have a us
 scenario, you can enable read-repair via configuration. 
 
 #### Quorum-based replica control
+
+Olric implements Read/Write quorum to keep the data in a consistent state. When you start a write operation on the cluster and write quorum (W) is 2, 
+the partition owner tries to write the given key/value pair on its own data storage and on the replica nodes. If the number of successful write operations 
+is below W, the primary owner returns `ErrWriteQuorum`. The read flow is the same: if you have R=2 and the owner only access one of the replicas, 
+it returns `ErrReadQuorum`.
 
 ### Eviction
 Olric supports different policies to evict keys from distributed maps. 
