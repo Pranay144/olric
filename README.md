@@ -14,7 +14,7 @@ With Olric, you can instantly create a fast, scalable, shared pool of RAM across
 * Supports different eviction algorithms,
 * Fast binary protocol,
 * Highly available and horizontally scalable,
-* Provides best-effort consistency guarantees without being a complete CP solution,
+* Provides best-effort consistency guarantees without being a complete CP (indeed PA/EC) solution,
 * Supports replication by default(with sync and async options),
 * Quorum-based voting for replica control(Read/Write quorums),
 * Supports atomic operations,
@@ -25,8 +25,8 @@ See [Sample Code](https://github.com/buraksezer/olric#sample-code) section for a
 
 ## Possible Use Cases
 
-With this feature set, Olric is pretty suitable to use as a distributed cache. But it also provides data replication, failure 
-detection and simple anti-entropy services. So it can be used as an ordinary key/value data store to scale your cloud application.
+With this feature set, Olric is suitable to use as a distributed cache. But it also provides data replication, failure detection 
+and simple anti-entropy services. So it can be used as an ordinary key/value data store to scale your cloud application.
 
 ## Project Status
 
@@ -76,6 +76,9 @@ Olric is in early stages of development. The package API and client protocol may
 * [Architecture](#architecture)
   * [Overview](#overview)
   * [Consistency and Replication Model](#consistency-and-replication-model)
+    *[Read-Repair on DMaps](#read-repair-on-dmaps)
+    *[Quorum-based Replica Control](#quorum-based-replica-control)
+    *[PACELC Theorem](#pacelc-theorem)
   * [Eviction](#eviction)
     * [Expire with TTL](#expire-with-ttl)
     * [Expire with MaxIdleDuration](#expire-with-maxidleduration)
@@ -116,7 +119,8 @@ See [Architecture](#architecture) section to see details.
 
 ## Planned Features
 
-* On-disk persistence mode to work beyond RAM,
+* Distributed queries over keys and values,
+* Database backend for persistence,
 * Anti-entropy system to repair inconsistencies in DMaps,
 * Publish/Subscribe for messaging,
 * Eviction listeners by using Publish/Subscribe,
@@ -732,10 +736,13 @@ Olric uses:
 * [hashicorp/memberlist](https://github.com/hashicorp/memberlist) for cluster membership and failure detection,
 * [buraksezer/consistent](https://github.com/buraksezer/consistent) for consistent hashing and load balancing,
 * [Golang's TCP implementation](https://golang.org/pkg/net/#TCPConn) as transport layer,
-* [encoding/gob](https://golang.org/pkg/encoding/gob/), [encoding/json](https://golang.org/pkg/encoding/json/) or [vmihailenco/msgpack](https://github.com/vmihailenco/msgpack) for serialization, optionally. 
+* Different alternatives for serialization:
+    * [encoding/gob](https://golang.org/pkg/encoding/gob/),
+    * [encoding/json](https://golang.org/pkg/encoding/json/), 
+    * [vmihailenco/msgpack](https://github.com/vmihailenco/msgpack).
 
 Olric distributes data among partitions. Every partition is owned by a cluster member and may have one or more backups for redundancy. 
-When you read or write a map entry, you transparently talk to the partition owner. Each request hits the most up-to-date version of a
+When you read or write a DMap entry, you transparently talk to the partition owner. Each request hits the most up-to-date version of a
 particular data entry in a stable cluster.
 
 In order to find the partition which the key belongs to, Olric hashes the key and mod it with the number of partitions:
@@ -757,31 +764,29 @@ When a new cluster is created, one of the instances is elected as the **cluster 
 Members propagates their birthdate(Unix timestamp in nanoseconds) to the cluster. The coordinator is the oldest member in the cluster.
 If the coordinator leaves the cluster, the second oldest member gets elected as the coordinator.
 
-Olric has a component called **fsck** which is responsible for keeping underlying data structures consistent:
+Olric has a component called **rebalancer** which is responsible for keeping underlying data structures consistent:
 
 * Works on every node,
-* When a node joins or leaves, the cluster coordinator pushes the new partition table. Then, fsck goroutine runs immediately and moves the partitions and backups to their new hosts,
-* Merges fragmented partitions,
-* Runs at background periodically and repairs partitions i.e. creates new backups if required.
+* When a node joins or leaves, the cluster coordinator pushes the new partition table. Then, the **rebalancer** runs immediately and moves the partitions and backups to their new hosts,
+* Merges fragmented partitions.
 
 Partitions have a concept called **owners list**. When a node joins or leaves the cluster, a new primary owner may be assigned by the 
-coordinator. At any time, a partition may have one or more partition owners. If a partition has two or more owners, this is called **fragmented partition**. The last added owner is called **primary owner**. Write operation is only done by the primary owner. The previous owners are only
-used for read and delete.
+coordinator. At any time, a partition may have one or more partition owners. If a partition has two or more owners, this is called **fragmented partition**. 
+The last added owner is called **primary owner**. Write operation is only done by the primary owner. The previous owners are only used for read and delete.
 
 When you read a key, the primary owner tries to find the key on itself, first. Then, queries the previous owners and backups, respectively.
 The delete operation works the same way.
 
-The data(distributed map objects) in the fragmented partition is moved slowly to the primary owner by **fsck** goroutine. Until the move is done,
-the data remains available on the previous owners. DMap methods use this list to query data on the cluster.
+The data(distributed map objects) in the fragmented partition is moved slowly to the primary owner by the **rebalancer**. Until the move is done,
+the data remains available on the previous owners. The DMap methods use this list to query data on the cluster.
 
-*Please note that, 'multiple partition owners' is an undesirable situation and the fsck component is designed to fix that in a short time.*
-
-When you call **Start** method of Olric, it starts a few background services with a TCP server.
+*Please note that, 'multiple partition owners' is an undesirable situation and the **rebalancer** component is designed to fix that in a short time.*
 
 ### Consistency and Replication Model
 
-[Olric is an AP product](https://en.wikipedia.org/wiki/CAP_theorem), which employs the combination of primary-copy and [optimistic replication](https://en.wikipedia.org/wiki/Optimistic_replication) techniques. With optimistic replication, when the partition owner receives a write or delete 
-operation for a key, applies it locally, and propagates it to backup owners.
+**Olric is an AP product** in the context of [CAP theorem](https://en.wikipedia.org/wiki/CAP_theorem), which employs the combination of primary-copy 
+and [optimistic replication](https://en.wikipedia.org/wiki/Optimistic_replication) techniques. With optimistic replication, when the partition owner 
+receives a write or delete operation for a key, applies it locally, and propagates it to backup owners.
 
 This technique enables Olric clusters to offer high throughput. However, due to temporary situations in the system, such as network
 failure, backup owners can miss some updates and diverge from the primary owner. If a partition owner crashes while there is an
@@ -793,7 +798,31 @@ model.
 * **sync**: Blocks until write/delete operation is applied by backup owners.
 * **async**: Just fire & forget.
 
-An anti-entropy system has been planned to deal with inconsistencies in DMaps.
+Olric implements read-repair and quorum based voting system to deal with inconsistencies in the DMaps. 
+
+#### Read-Repair on DMaps
+
+Read repair is a feature that allows for inconsistent data to be fixed at query time. Olric tracks every write operation with a timestamp value and assumes 
+that the latest write operation is the valid one. When you want to access a key/value pair, the partition owner retrieves all available copies for that pair
+and compares the timestamp values. The latest one is the winner. If there is some outdated version of the requested pair, the primary owner propagates the latest
+version of the pair. 
+
+Read-repair is disabled by default for the sake of performance. If you have a use case that requires a more strict consistency control than a distributed caching 
+scenario, you can enable read-repair via configuration. 
+
+#### Quorum-based replica control
+
+#### PACELC Theorem
+
+From Wikipedia:
+
+> In theoretical computer science, the [PACELC theorem](https://en.wikipedia.org/wiki/PACELC_theorem) is an extension to the [CAP theorem](https://en.wikipedia.org/wiki/CAP_theorem). It states that in case of network partitioning (P) in a 
+> distributed computer system, one has to choose between availability (A) and consistency (C) (as per the CAP theorem), but else (E), even when the system is 
+> running normally in the absence of partitions, one has to choose between latency (L) and consistency (C).
+
+In the context of PACELC theorem, Olric is a **PA/EC** product. It means that Olric is considered to be **consistent** data store if the network is stable. 
+Because the key space is divided between partitions and every partition is controlled by its primary owner. All operations on DMaps are redirected to the 
+partition owner. 
 
 ### Eviction
 Olric supports different policies to evict keys from distributed maps. 
@@ -916,14 +945,14 @@ func main() {
 
 	db, err := olric.New(c)
 	if err != nil {
-		log.Fatalf("Failed to create Olric object: %v", err)
+		log.Fatalf("Failed to create Olric instance: %v", err)
 	}
 
 	go func() {
 		// Call Start at background. It's a blocker call.
 		err = db.Start()
 		if err != nil {
-			log.Fatalf("Failed to call Start: %v", err)
+			log.Fatalf("olric.Start returned an error: %v", err)
 		}
 	}()
 
@@ -932,7 +961,7 @@ func main() {
 	// Put 10 items into the DMap object.
 	dm, err := db.NewDMap("bucket-of-arbitrary-items")
 	if err != nil {
-		log.Fatalf("Failed to call NewDMap: %v", err)
+		log.Fatalf("olric.NewDMap returned an error: %v", err)
 	}
 	for i := 0; i < 10; i++ {
 		c := customType{}
