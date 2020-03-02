@@ -76,9 +76,9 @@ Olric is in early stages of development. The package API and client protocol may
 * [Architecture](#architecture)
   * [Overview](#overview)
   * [Consistency and Replication Model](#consistency-and-replication-model)
-    *[Read-Repair on DMaps](#read-repair-on-dmaps)
-    *[Quorum-based Replica Control](#quorum-based-replica-control)
-    *[PACELC Theorem](#pacelc-theorem)
+    * [Read-Repair on DMaps](#read-repair-on-dmaps)
+    * [Quorum-based Replica Control](#quorum-based-replica-control)
+    * [PACELC Theorem](#pacelc-theorem)
   * [Eviction](#eviction)
     * [Expire with TTL](#expire-with-ttl)
     * [Expire with MaxIdleDuration](#expire-with-maxidleduration)
@@ -233,7 +233,6 @@ myvalue
 ```
 
 The interactive mode also keeps command history. 
-
 
 It's possible to send protocol commands as command line arguments:
 
